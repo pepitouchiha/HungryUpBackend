@@ -1,0 +1,28 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+## Base de datos SQLite (generada al correr)
+*.db
+*.db-shm
+*.db-wal
+
+## Publicación
+publish/
+out/
+
+## Logs
+*.log
+/tmp/
+
+## Entornos
+.env
+appsettings.*.json
+!appsettings.json
+
+## OS
+.DS_Store
+Thumbs.db

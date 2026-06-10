@@ -1,0 +1,6 @@
+@HungryUpBackend_HostAddress = http://localhost:5216
+
+GET {{HungryUpBackend_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
