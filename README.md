@@ -1,11 +1,11 @@
-# 🍔 HungryUp Backend
+# HungryUp Backend
 
-> REST API para automatización de restaurantes — construida como un **Monolito Modular** en .NET 9.
+> REST API para automatización de restaurantes — construida con **Clean Architecture** en .NET 9.
 
 ![.NET](https://img.shields.io/badge/.NET-9.0-512BD4?style=flat-square&logo=dotnet)
 ![EF Core](https://img.shields.io/badge/EF%20Core-9.0-512BD4?style=flat-square)
 ![SQLite](https://img.shields.io/badge/SQLite-003B57?style=flat-square&logo=sqlite&logoColor=white)
-![Architecture](https://img.shields.io/badge/Architecture-Modular%20Monolith-blue?style=flat-square)
+![Architecture](https://img.shields.io/badge/Architecture-Clean%20Architecture-blue?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
 
 ---
@@ -16,54 +16,62 @@ HungryUp es el backend para un sistema de gestión de restaurantes que soporta d
 
 | Flujo | Descripción |
 |---|---|
-| 🏃 **FastFood** | Orden → Pago inmediato → Cocina. Sin mesa asignada. |
-| 🍷 **Gourmet** | Orden → Consumo incremental → Pago y cierre al final. Mesa requerida. |
+| **FastFood** | Orden → Pago inmediato → Cocina. Sin mesa asignada. |
+| **Gourmet** | Orden → Consumo incremental → Pago y cierre al final. Mesa requerida. |
 
 ---
 
 ## Arquitectura
 
-El proyecto sigue el patrón de **Monolito Modular**: un único proceso y una única base de datos, pero con módulos internamente aislados que se comunican **exclusivamente a través de interfaces públicas**, nunca via DbContext cruzados.
+El proyecto sigue **Clean Architecture** con 4 capas separadas en proyectos independientes. La regla de dependencia es estricta: las capas internas nunca conocen a las externas.
 
 ```
 HungryUpBackend/
-│
-├── Modules/
-│   ├── Catalog/          # Gestión de productos y categorías
-│   │   ├── Controllers/
-│   │   ├── Entities/     ← CatalogDbContext aislado
-│   │   └── Services/     ← ICatalogService
-│   │
-│   ├── Orders/           # Pedidos, detalles y mesas
-│   │   ├── Controllers/
-│   │   ├── Entities/     ← OrdersDbContext aislado
-│   │   └── Services/     ← IOrdersService
-│   │
-│   ├── Billing/          # Pagos y facturación
-│   │   ├── Controllers/
-│   │   ├── Entities/     ← BillingDbContext aislado
-│   │   └── Services/     ← IBillingService
-│   │
-│   └── Analytics/        # Reportes de ventas
-│       ├── Controllers/
-│       └── Services/     ← IAnalyticsService
-│
-├── Program.cs            # DI, middlewares, auto-migrate + seed
-├── DataSeeder.cs         # Datos de prueba al arrancar
-├── GlobalExceptionHandler.cs
-├── check-architecture.sh # Validador de reglas arquitectónicas
-└── db-migrate.sh         # Generador de migraciones por módulo
+├── HungryUpBackend.sln
+├── db-migrate.sh
+└── src/
+    ├── HungryUp.Domain/          # Entidades y enums (sin dependencias externas)
+    │   ├── Common/
+    │   │   └── BaseEntity.cs
+    │   ├── Catalog/              # Producto, Categoria
+    │   ├── Orders/               # Pedido, Mesa, DetallePedido, enums
+    │   └── Billing/              # Pago, MetodoPago
+    │
+    ├── HungryUp.Persistence/     # DbContexts y migraciones (→ Domain)
+    │   ├── Catalog/
+    │   │   ├── CatalogDbContext.cs
+    │   │   └── Migrations/
+    │   ├── Orders/
+    │   │   ├── OrdersDbContext.cs
+    │   │   └── Migrations/
+    │   └── Billing/
+    │       ├── BillingDbContext.cs
+    │       └── Migrations/
+    │
+    ├── HungryUp.Application/     # Servicios, interfaces y DTOs (→ Domain + Persistence)
+    │   ├── Auth/
+    │   ├── Catalog/
+    │   ├── Orders/
+    │   ├── Billing/
+    │   └── Analytics/
+    │
+    └── HungryUp.Api/             # Controllers, Program.cs (→ Application + Persistence)
+        ├── Auth/
+        ├── Catalog/
+        ├── Orders/
+        ├── Billing/
+        ├── Analytics/
+        └── Properties/
+            └── launchSettings.json
 ```
 
-### Comunicación entre módulos
+### Cadena de dependencias
 
 ```
-AnalyticsService  ──▶  IBillingService
-BillingService    ──▶  IOrdersService
-OrdersService     ──▶  ICatalogService   (captura precio estático)
+Api  →  Application  →  Persistence  →  Domain
 ```
 
-Ningún módulo toca el `DbContext` de otro. Punto.
+Cada dominio tiene su propio `DbContext` aislado con tabla de migraciones independiente (`__EFMigrationsHistory_Catalog`, `__EFMigrationsHistory_Orders`, `__EFMigrationsHistory_Billing`).
 
 ---
 
@@ -73,32 +81,45 @@ Ningún módulo toca el `DbContext` de otro. Punto.
 |---|---|
 | Framework | ASP.NET Core 9 — Minimal Hosting |
 | ORM | Entity Framework Core 9 |
-| Base de datos | SQLite (un solo archivo `hungryup.db`) |
+| Base de datos | SQLite — 3 DbContexts aislados |
 | API Docs | Scalar UI (`/scalar/v1`) |
 | Serialización | `System.Text.Json` + enums como strings |
+| Auth | Credenciales hardcodeadas (sin JWT), token base64 |
 
 ---
 
 ## Endpoints
 
-### 📦 Catalog
+### Auth
+```
+POST /api/auth/login                   Iniciar sesión → devuelve sesión con token
+```
+
+### Catalog
 ```
 GET  /api/v1/products                  Productos con stock disponible
 POST /api/v1/products                  Crear producto
+GET  /api/v1/products/{id}             Obtener producto por ID
+GET  /api/v1/products/categorias       Listar todas las categorías
 ```
 
-### 🧾 Orders
+### Orders
 ```
+GET  /api/v1/orders                    Listar pedidos (filtro ?estadoPrep=Pendiente|EnPreparacion|Entregado)
 POST /api/v1/orders                    Crear orden (FastFood o Gourmet)
+GET  /api/v1/orders/{id}              Obtener pedido por ID
 PUT  /api/v1/orders/{id}/status        Cambiar estado de preparación
+GET  /api/v1/orders/mesas              Listar mesas con su estado
+POST /api/v1/orders/mesas/{id}/liberar Liberar una mesa
 ```
 
-### 💳 Billing
+### Billing
 ```
 POST /api/v1/billing/pay               Procesar pago de una orden
+GET  /api/v1/billing/resumen           Resumen de ventas
 ```
 
-### 📊 Analytics
+### Analytics
 ```
 GET  /api/v1/analytics/sales-summary?periodo=dia|semana|mes
 ```
@@ -110,21 +131,32 @@ GET  /api/v1/analytics/sales-summary?periodo=dia|semana|mes
 ### Requisitos
 
 - [.NET 9 SDK](https://dotnet.microsoft.com/download)
-- [dotnet-ef CLI](https://learn.microsoft.com/ef/core/cli/dotnet) — `dotnet tool install -g dotnet-ef`
+- [dotnet-ef CLI](https://learn.microsoft.com/ef/core/cli/dotnet): `dotnet tool install -g dotnet-ef`
 
-### Instalación y ejecución
+### Ejecución
 
 ```bash
 git clone https://github.com/pepitouchiha/HungryUpBackend.git
 cd HungryUpBackend
-dotnet run
+dotnet run --project src/HungryUp.Api
 ```
 
-Al arrancar, el sistema automáticamente:
-1. Aplica las migraciones pendientes en `hungryup.db`
-2. Carga datos de prueba (categorías, productos y mesas)
+Al arrancar el sistema aplica automáticamente las migraciones pendientes y carga datos de prueba (categorías, productos y mesas).
 
-Abre la UI interactiva en: **http://localhost:5216/scalar/v1**
+API disponible en: **http://localhost:5216**
+Documentación interactiva: **http://localhost:5216/scalar/v1**
+
+---
+
+## Autenticación
+
+El sistema usa credenciales hardcodeadas sin JWT. El endpoint `/api/auth/login` devuelve un objeto de sesión con token base64.
+
+| Usuario | Contraseña | Rol |
+|---|---|---|
+| `admin` | `admin123` | Admin |
+| `cajero` | `cajero123` | Cajero |
+| `mesero` | `mesero123` | Mesero |
 
 ---
 
@@ -132,8 +164,7 @@ Abre la UI interactiva en: **http://localhost:5216/scalar/v1**
 
 Al correr por primera vez se insertan automáticamente:
 
-**Categorías**
-- Bebidas · Comidas Rápidas · Postres
+**Categorías** — Bebidas, Comidas Rápidas, Postres
 
 **Productos**
 | Nombre | Precio | Stock |
@@ -148,74 +179,69 @@ Al correr por primera vez se insertan automáticamente:
 
 ---
 
-## Scripts de utilidad
+## Conexión con el frontend
 
-### `check-architecture.sh`
-Valida las 4 reglas de arquitectura definidas en la spec:
+El frontend Angular en `D:\.NET\HungryUpFrontend` se conecta al backend via proxy en desarrollo.
 
+**`proxy.conf.json`** (en la raíz del proyecto Angular):
+```json
+{
+  "/api": {
+    "target": "http://localhost:5216",
+    "secure": false,
+    "changeOrigin": true
+  }
+}
+```
+
+Para correr ambos en desarrollo:
 ```bash
-bash check-architecture.sh
+# Terminal 1 — backend
+dotnet run --project src/HungryUp.Api
+
+# Terminal 2 — frontend
+cd D:\.NET\HungryUpFrontend\frontendclient
+npm start
 ```
 
-```
-── Regla: sin float ni double en Modules/ ───────────────
-  ✓ Ningún uso de float o double detectado.
+---
 
-── Regla: decimal(18,2) — HasPrecision en cada DbContext ─
-  ✓ CatalogDbContext  → HasPrecision encontrado
-  ✓ OrdersDbContext   → HasPrecision encontrado
-  ✓ BillingDbContext  → HasPrecision encontrado
+## Migraciones
 
-── Regla: aislamiento de DbContexts entre módulos ────────
-  ✓ Modules/Catalog/  no referencia otros DbContexts
-  ...
-
-Resultado: 11 reglas OK  |  0 violaciones
-```
-
-### `db-migrate.sh`
-Genera una migración en los 3 módulos con persistencia simultáneamente:
+Para generar una migración en los 3 contextos simultáneamente:
 
 ```bash
 bash db-migrate.sh NombreDeLaMigracion
 ```
 
-Las migraciones se aplican automáticamente en el próximo `dotnet run`.
-
----
-
-## Reglas de arquitectura (estrictas)
-
-Definidas en [`backend-spec.md`](./backend-spec.md):
-
-- ❌ **Prohibido** usar `float` o `double` para precios — solo `decimal`
-- ❌ **Prohibido** acceder al `DbContext` de otro módulo directamente
-- ✅ Todos los precios se mapean como `decimal(18,2)` (`HasPrecision`)
-- ✅ La comunicación inter-módulo es siempre a través de `IXxxService`
-- ✅ El precio unitario en `DetallePedido` es una **captura estática** al momento de la orden
+Las migraciones se aplican automáticamente al arrancar con `dotnet run`.
 
 ---
 
 ## Flujo de ejemplo — FastFood
 
 ```bash
-# 1. Ver productos disponibles
+# 1. Login
+POST /api/auth/login
+{ "username": "cajero", "password": "cajero123" }
+
+# 2. Ver productos disponibles
 GET /api/v1/products
 
-# 2. Crear orden
+# 3. Crear orden
 POST /api/v1/orders
 { "tipoRestaurante": "FastFood", "mesaId": null,
   "items": [{ "productoId": "...", "cantidad": 2 }] }
 
-# 3. Cocina actualiza estado
+# 4. Cocina actualiza estado
 PUT /api/v1/orders/{id}/status
 { "nuevoEstado": "EnPreparacion" }
 
-# 4. Cliente paga
+# 5. Cliente paga
 POST /api/v1/billing/pay
-{ "pedidoId": "...", "metodoPago": "Efectivo", "montoPagado": 8.50 }
+{ "pedidoId": "...", "metodo": "Efectivo", "montoPagado": 8.50 }
 
-# 5. Ver resumen del día
+# 6. Ver resumen del día
 GET /api/v1/analytics/sales-summary?periodo=dia
 ```
 

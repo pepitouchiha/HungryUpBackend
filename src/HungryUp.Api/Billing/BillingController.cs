@@ -1,0 +1,21 @@
+using HungryUp.Application.Billing;
+using HungryUp.Application.Billing.Dtos;
+using Microsoft.AspNetCore.Mvc;
+
+namespace HungryUp.Api.Billing;
+
+[ApiController]
+[Route("api/v1/billing")]
+public class BillingController : ControllerBase
+{
+    private readonly IBillingService _service;
+
+    public BillingController(IBillingService service) => _service = service;
+
+    [HttpPost("pay")]
+    public async Task<IActionResult> Pay([FromBody] ProcesarPagoDto dto)
+    {
+        var pago = await _service.ProcesarPagoAsync(dto);
+        return Ok(pago);
+    }
+}
