@@ -12,8 +12,14 @@ public class CatalogDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        // Precio en pesos colombianos (COP): moneda sin centavos, se almacena como valor entero.
         modelBuilder.Entity<Producto>()
             .Property(p => p.Precio)
-            .HasPrecision(18, 2);
+            .HasPrecision(18, 0);
+
+        // Imagen opcional del producto.
+        modelBuilder.Entity<Producto>()
+            .Property(p => p.ImagenUrl)
+            .HasMaxLength(2048);
     }
 }

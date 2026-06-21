@@ -1,13 +1,14 @@
+using HungryUp.Domain.Auth;
+
 namespace HungryUp.Application.Auth.Dtos;
 
-public record UserSessionDto(
+public record UsuarioDto(
     int Id,
     string Username,
     string Email,
     string FullName,
-    string Role,
-    string Token,
-    string TokenExpiration,
+    RolUsuario Rol,
+    bool Activo,
     int EnterpriseId,
     string EnterpriseName
 );

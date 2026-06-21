@@ -1,10 +1,12 @@
 using HungryUp.Application.Catalog;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HungryUp.Api.Catalog;
 
 [ApiController]
 [Route("api/v1/categories")]
+[Authorize]
 public class CategoriesController : ControllerBase
 {
     private readonly ICatalogService _service;

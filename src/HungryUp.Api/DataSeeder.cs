@@ -1,5 +1,7 @@
+using HungryUp.Domain.Auth;
 using HungryUp.Domain.Catalog;
 using HungryUp.Domain.Orders;
+using HungryUp.Persistence.Auth;
 using HungryUp.Persistence.Catalog;
 using HungryUp.Persistence.Orders;
 
@@ -12,8 +14,35 @@ public static class DataSeeder
         using var scope = services.CreateScope();
         var sp = scope.ServiceProvider;
 
+        await SeedAuthAsync(sp.GetRequiredService<AuthDbContext>());
         await SeedCatalogAsync(sp.GetRequiredService<CatalogDbContext>());
         await SeedOrdersAsync(sp.GetRequiredService<OrdersDbContext>());
+    }
+
+    private static async Task SeedAuthAsync(AuthDbContext db)
+    {
+        if (db.Usuarios.Any()) return;
+
+        static Usuario Crear(string username, string password, string email, string fullName, RolUsuario rol) => new()
+        {
+            Username = username,
+            Email = email,
+            FullName = fullName,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
+            Rol = rol,
+            Activo = true,
+            EnterpriseId = 1,
+            EnterpriseName = "HungryUp Restaurant",
+            FechaCreacion = DateTime.UtcNow
+        };
+
+        db.Usuarios.AddRange(
+            Crear("admin",  "admin123",  "admin@hungryup.com",  "Administrador", RolUsuario.Admin),
+            Crear("cajero", "cajero123", "cajero@hungryup.com", "Cajero",        RolUsuario.Cashier),
+            Crear("mesero", "mesero123", "mesero@hungryup.com", "Mesero",        RolUsuario.Waiter)
+        );
+
+        await db.SaveChangesAsync();
     }
 
     private static async Task SeedCatalogAsync(CatalogDbContext db)

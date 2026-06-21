@@ -19,7 +19,7 @@ public class CatalogService : ICatalogService
     public Task<List<ProductoDto>> GetProductosActivosAsync() =>
         _db.Productos
             .Where(p => p.StockActual > 0)
-            .Select(p => new ProductoDto(p.Id, p.Nombre, p.Precio, p.StockActual, p.CategoriaId))
+            .Select(p => new ProductoDto(p.Id, p.Nombre, p.Precio, p.StockActual, p.CategoriaId, p.ImagenUrl))
             .ToListAsync();
 
     public async Task<ProductoDto> CrearProductoAsync(CreateProductoDto dto)
@@ -30,16 +30,17 @@ public class CatalogService : ICatalogService
             Nombre = dto.Nombre,
             Precio = dto.Precio,
             StockActual = dto.StockInicial,
-            CategoriaId = dto.CategoriaId
+            CategoriaId = dto.CategoriaId,
+            ImagenUrl = dto.ImagenUrl
         };
         _db.Productos.Add(producto);
         await _db.SaveChangesAsync();
-        return new ProductoDto(producto.Id, producto.Nombre, producto.Precio, producto.StockActual, producto.CategoriaId);
+        return new ProductoDto(producto.Id, producto.Nombre, producto.Precio, producto.StockActual, producto.CategoriaId, producto.ImagenUrl);
     }
 
     public async Task<ProductoDto?> ObtenerProductoPorIdAsync(Guid id)
     {
         var p = await _db.Productos.FirstOrDefaultAsync(p => p.Id == id);
-        return p is null ? null : new ProductoDto(p.Id, p.Nombre, p.Precio, p.StockActual, p.CategoriaId);
+        return p is null ? null : new ProductoDto(p.Id, p.Nombre, p.Precio, p.StockActual, p.CategoriaId, p.ImagenUrl);
     }
 }

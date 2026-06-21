@@ -1,11 +1,13 @@
 using HungryUp.Application.Billing;
 using HungryUp.Application.Billing.Dtos;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HungryUp.Api.Billing;
 
 [ApiController]
 [Route("api/v1/billing")]
+[Authorize]
 public class BillingController : ControllerBase
 {
     private readonly IBillingService _service;
