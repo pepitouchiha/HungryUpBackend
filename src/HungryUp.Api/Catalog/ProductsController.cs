@@ -1,11 +1,13 @@
 using HungryUp.Application.Catalog;
 using HungryUp.Application.Catalog.Dtos;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HungryUp.Api.Catalog;
 
 [ApiController]
 [Route("api/v1/products")]
+[Authorize]
 public class ProductsController : ControllerBase
 {
     private readonly ICatalogService _service;

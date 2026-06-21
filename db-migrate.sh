@@ -36,4 +36,11 @@ dotnet ef migrations add "$NAME" \
   --context BillingDbContext \
   --output-dir Billing/Migrations
 
+echo "-> AuthDbContext"
+dotnet ef migrations add "$NAME" \
+  --project "$PERSISTENCE" \
+  --startup-project "$STARTUP" \
+  --context AuthDbContext \
+  --output-dir Auth/Migrations
+
 echo "Migraciones '$NAME' creadas. Ejecuta 'dotnet run' para aplicarlas automaticamente."

@@ -1,12 +1,14 @@
 using HungryUp.Application.Orders;
 using HungryUp.Application.Orders.Dtos;
 using HungryUp.Domain.Orders;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HungryUp.Api.Orders;
 
 [ApiController]
 [Route("api/v1/orders")]
+[Authorize]
 public class OrdersController : ControllerBase
 {
     private readonly IOrdersService _service;
