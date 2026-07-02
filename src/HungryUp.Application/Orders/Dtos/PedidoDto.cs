@@ -8,6 +8,7 @@ public record PedidoDto(
     Guid Id,
     Guid? MesaId,
     DateTime FechaCreacion,
+    DateTime? FechaEntrega,
     EstadoPreparacion EstadoPrep,
     EstadoFinanciero EstadoFin,
     TipoRestaurante Tipo,

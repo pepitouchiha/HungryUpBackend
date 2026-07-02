@@ -12,8 +12,13 @@ namespace HungryUp.Api.Orders;
 public class OrdersController : ControllerBase
 {
     private readonly IOrdersService _service;
+    private readonly IMesaService _mesaService;
 
-    public OrdersController(IOrdersService service) => _service = service;
+    public OrdersController(IOrdersService service, IMesaService mesaService)
+    {
+        _service = service;
+        _mesaService = mesaService;
+    }
 
     [HttpGet]
     public async Task<IActionResult> GetOrders([FromQuery] EstadoPreparacion? estadoPrep = null) =>
@@ -21,7 +26,11 @@ public class OrdersController : ControllerBase
 
     [HttpGet("mesas")]
     public async Task<IActionResult> GetMesas() =>
-        Ok(await _service.GetMesasAsync());
+        Ok(await _mesaService.GetMesasAsync(soloActivos: true));
+
+    [HttpGet("delivered-today")]
+    public async Task<IActionResult> GetDeliveredToday() =>
+        Ok(await _service.GetEntregadosHoyAsync());
 
     [HttpPost]
     public async Task<IActionResult> CreateOrder([FromBody] CreatePedidoDto dto)

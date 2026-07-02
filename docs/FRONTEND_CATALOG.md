@@ -1,91 +1,133 @@
-# Cambios en Catálogo (Productos) — Guía para el Frontend
+# Catálogo y Administración (CRUD) — Guía para el Frontend
 
-Cambios en el módulo de **productos** que el frontend debe tener en cuenta. Complementa a
-[`FRONTEND_AUTH.md`](./FRONTEND_AUTH.md) (recuerda: estos endpoints ahora requieren
-`Authorization: Bearer <accessToken>`).
-
----
-
-## 1. Precio en pesos colombianos (COP) — sin decimales
-
-El campo `precio` de los productos representa **pesos colombianos**, que **no usan centavos**.
-En la base de datos se almacena con precisión entera (`HasPrecision(18, 0)`).
-
-**Implicaciones para el frontend:**
-
-- **Enviar** el precio como **número entero** (ej. `18000`, no `18000.50`). Los decimales se truncan.
-- **Mostrar** formateado como COP, sin decimales:
-  ```ts
-  new Intl.NumberFormat('es-CO', {
-    style: 'currency', currency: 'COP', maximumFractionDigits: 0
-  }).format(18000);   // => "$ 18.000"
-  ```
-  O con el `CurrencyPipe` de Angular:
-  ```html
-  {{ producto.precio | currency:'COP':'symbol':'1.0-0':'es-CO' }}  <!-- $18.000 -->
-  ```
-- Validar en formularios que el precio sea un **entero ≥ 0** (sin separador decimal).
+Cambios en **productos, categorías, mesas y usuarios**. Complementa a
+[`FRONTEND_AUTH.md`](./FRONTEND_AUTH.md). **Todos** estos endpoints requieren
+`Authorization: Bearer <accessToken>`.
 
 ---
 
-## 2. Nuevo campo `imagenUrl` (opcional)
+## 0. Conceptos transversales
 
-Los productos tienen un campo **`imagenUrl`** opcional (string, máx. 2048 caracteres).
-Puede venir **`null`** si el producto no tiene imagen.
+### Borrado lógico (soft delete)
+`DELETE` **nunca elimina** físicamente: marca el registro como `activo = false`.
+- Los **listados** (`GET` de productos, categorías y mesas) devuelven **TODOS** los registros
+  (activos e inactivos) por defecto. Cada item trae su flag `activo` para que el front decida
+  cómo mostrarlo (p. ej. atenuado o con badge "Inactivo").
+- Filtro opcional **`?activos=true`** para traer solo los activos (útil en vistas operativas).
+- El `GET /{id}` devuelve el registro aunque esté inactivo (útil para edición/restauración).
+- **Restaurar:** hacer `PUT` con `activo: true` (productos vía update no exponen `activo`;
+  categorías y mesas sí — ver shapes).
+- **Excepción operativa:** `GET /api/v1/orders/mesas` (asignar mesa a un pedido) devuelve
+  **solo activas**, no se puede asignar un pedido a una mesa eliminada.
 
-**Implicaciones para el frontend:**
-
-- Al **listar/mostrar** productos, manejar el caso `null` con una **imagen placeholder**.
-  ```html
-  <img [src]="producto.imagenUrl || 'assets/img/producto-placeholder.png'" alt="{{ producto.nombre }}">
-  ```
-- Al **crear** un producto, el campo es **opcional**: se puede omitir o enviar `null`.
+### Precio en COP
+`precio` es **entero** (pesos colombianos, sin decimales). Ver detalle en la versión anterior:
+formatear con `Intl.NumberFormat('es-CO', { style:'currency', currency:'COP', maximumFractionDigits:0 })`.
 
 ---
 
-## 3. Shapes actualizados
+## 1. Productos — `/api/v1/products`
 
-### Producto (respuesta) — `ProductoDto`
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| `GET`    | `/api/v1/products` | Lista **todos** (`?activos=true` filtra solo activos) |
+| `GET`    | `/api/v1/products/{id}` | Uno por id (activo o no) |
+| `POST`   | `/api/v1/products` | Crear |
+| `PUT`    | `/api/v1/products/{id}` | Actualizar |
+| `DELETE` | `/api/v1/products/{id}` | Borrado lógico (204) |
+| `POST`   | `/api/v1/products/{id}/image` | **Subir imagen** (multipart) |
+
+**`ProductoDto` (respuesta)**
 ```json
 {
-  "id": "a1b2c3d4-...",          // Guid
-  "nombre": "Hamburguesa Clásica",
-  "precio": 18000,               // entero COP, sin decimales
-  "stockActual": 50,
-  "categoriaId": "10000000-0000-0000-0000-000000000002",
-  "imagenUrl": "https://cdn.hungryup.co/hamburguesa.jpg"   // o null
+  "id": "guid",
+  "nombre": "Limonada",
+  "precio": 6000,
+  "stockActual": 40,
+  "categoriaId": "guid",
+  "imagenUrl": "/images/products/ab12...png",
+  "activo": true
 }
 ```
 
-### Crear producto (request) — `CreateProductoDto`
-`POST /api/v1/products`
-```json
-{
-  "nombre": "Hamburguesa Clásica",
-  "precio": 18000,
-  "stockInicial": 50,
-  "categoriaId": "10000000-0000-0000-0000-000000000002",
-  "imagenUrl": "https://cdn.hungryup.co/hamburguesa.jpg"   // opcional, puede omitirse
+**Crear** (`CreateProductoDto`): `{ nombre, precio, stockInicial, categoriaId, imagenUrl? }`
+**Actualizar** (`UpdateProductoDto`): `{ nombre, precio, stockActual, categoriaId, imagenUrl? }`
+
+### Imágenes con ruta interna
+La imagen ya **no es solo una URL externa**: se sube el archivo y el backend lo guarda
+internamente, devolviendo una **ruta interna** (`/images/products/{archivo}`) en `imagenUrl`.
+
+- **Endpoint:** `POST /api/v1/products/{id}/image`
+- **Body:** `multipart/form-data` con el campo **`file`**.
+- **Restricciones:** extensiones `.jpg .jpeg .png .webp .gif`, máx. **5 MB**.
+- **Respuesta:** el `ProductoDto` actualizado (con el nuevo `imagenUrl`).
+- **Mostrar la imagen:** anteponer la base de la API a la ruta:
+  `src = apiBaseUrl + producto.imagenUrl` (ej. `http://localhost:5216/images/products/ab12...png`).
+  Las imágenes se sirven **públicamente** (no requieren token).
+
+**Ejemplo Angular**
+```ts
+subirImagen(productoId: string, file: File) {
+  const form = new FormData();
+  form.append('file', file);
+  return this.http.post<Producto>(`/api/v1/products/${productoId}/image`, form);
+  // No fijar Content-Type manualmente: Angular pone el boundary del multipart.
 }
 ```
 
-> `imagenUrl` es opcional; si se omite, el producto se crea sin imagen (`null`).
+---
+
+## 2. Categorías — `/api/v1/categories`
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| `GET`    | `/api/v1/categories` | Lista **todas** (`?activos=true` filtra solo activas) |
+| `GET`    | `/api/v1/categories/{id}` | Una por id |
+| `POST`   | `/api/v1/categories` | Crear |
+| `PUT`    | `/api/v1/categories/{id}` | Actualizar |
+| `DELETE` | `/api/v1/categories/{id}` | Borrado lógico (204) |
+
+**`CategoriaDto`**: `{ id, nombre, activo }`
+**Crear**: `{ nombre }` · **Actualizar**: `{ nombre, activo }` (poner `activo:true` para restaurar)
 
 ---
 
-## 4. Endpoints de productos (recordatorio)
+## 3. Mesas — `/api/v1/mesas`
 
-| Método | Ruta | Notas |
-|--------|------|-------|
-| `GET`  | `/api/v1/products` | Lista productos con stock > 0. **Requiere Bearer token.** |
-| `POST` | `/api/v1/products` | Crea producto. **Requiere Bearer token.** |
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| `GET`    | `/api/v1/mesas` | Lista **todas** (`?activos=true` filtra solo activas) |
+| `GET`    | `/api/v1/mesas/{id}` | Una por id |
+| `POST`   | `/api/v1/mesas` | Crear |
+| `PUT`    | `/api/v1/mesas/{id}` | Actualizar |
+| `DELETE` | `/api/v1/mesas/{id}` | Borrado lógico (204) |
+
+**`MesaDto`**: `{ id, numero, estado, activo }` — `estado` ∈ `"Libre" | "Ocupada"`.
+**Crear**: `{ numero }` (nace `Libre` y activa) · **Actualizar**: `{ numero, estado, activo }`
+- No se permiten dos mesas **activas** con el mismo `numero` (→ 400).
+- El endpoint antiguo `GET /api/v1/orders/mesas` sigue funcionando (lista activas).
+
+---
+
+## 4. Usuarios — `/api/v1/users` (solo rol `Admin`)
+
+Sin cambios en los existentes; **nuevo**:
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| `DELETE` | `/api/v1/users/{id}` | Borrado lógico (`activo=false`, 204) |
+
+> El usuario desactivado **no puede iniciar sesión** (login → 401), pero **sigue apareciendo**
+> en `GET /api/v1/users` (el admin puede reactivarlo con `PUT … { activo:true }`).
 
 ---
 
 ## 5. Checklist de migración para el front
 
-- [ ] Tratar `precio` como **entero** (envío y validación), sin decimales.
-- [ ] Formatear el precio como **COP** (`$18.000`).
-- [ ] Soportar `imagenUrl` **nullable** con imagen placeholder.
-- [ ] Permitir `imagenUrl` opcional en el formulario de creación.
-- [ ] Adjuntar `Authorization: Bearer <accessToken>` a las llamadas de productos.
+- [ ] Tratar `DELETE` como desactivación (no esperar que el registro desaparezca físicamente).
+- [ ] Asumir que los listados traen **todos** los registros; usar el flag `activo` de cada item
+      (o `?activos=true`) para decidir qué mostrar.
+- [ ] Usar el `GET /{id}` para pantallas de edición/restauración.
+- [ ] Implementar subida de imagen con `FormData` (campo `file`) y mostrarla con `apiBaseUrl + imagenUrl`.
+- [ ] Manejar `precio` como entero COP.
+- [ ] CRUD de mesas con control de número duplicado (400).

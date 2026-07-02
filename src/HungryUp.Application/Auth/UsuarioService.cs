@@ -76,6 +76,15 @@ public class UsuarioService : IUsuarioService
         await _db.SaveChangesAsync();
     }
 
+    public async Task EliminarAsync(int id)
+    {
+        var usuario = await _db.Usuarios.FindAsync(id)
+            ?? throw new KeyNotFoundException($"No existe el usuario con id {id}.");
+
+        usuario.Activo = false; // borrado lógico
+        await _db.SaveChangesAsync();
+    }
+
     private static UsuarioDto Map(Usuario u) =>
         new(u.Id, u.Username, u.Email, u.FullName, u.Rol, u.Activo, u.EnterpriseId, u.EnterpriseName);
 }

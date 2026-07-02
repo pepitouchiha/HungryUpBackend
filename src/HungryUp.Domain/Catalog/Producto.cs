@@ -11,8 +11,11 @@ public class Producto
 
     public int StockActual { get; set; }
 
-    /// <summary>URL de la imagen del producto. Opcional.</summary>
+    /// <summary>Ruta interna (/images/products/...) o URL de la imagen del producto. Opcional.</summary>
     public string? ImagenUrl { get; set; }
+
+    /// <summary>Borrado lógico: false = eliminado/inactivo, no se muestra en listados.</summary>
+    public bool Activo { get; set; } = true;
 
     public Categoria Categoria { get; set; } = null!;
 }

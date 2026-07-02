@@ -26,11 +26,26 @@ public class OrdersService : IOrdersService
         return pedidos.Select(MapToDto).ToList();
     }
 
-    public Task<List<MesaDto>> GetMesasAsync() =>
-        _db.Mesas
-            .OrderBy(m => m.Numero)
-            .Select(m => new MesaDto(m.Id, m.Numero, m.Estado))
+    // Colombia es UTC-5 fijo (no aplica horario de verano).
+    private static readonly TimeSpan ColombiaOffset = TimeSpan.FromHours(-5);
+
+    public async Task<List<PedidoDto>> GetEntregadosHoyAsync()
+    {
+        // "Hoy" según la hora local de Colombia, convertido a UTC para filtrar FechaEntrega.
+        var inicioDiaColombia = (DateTime.UtcNow + ColombiaOffset).Date;
+        var inicioUtc = inicioDiaColombia - ColombiaOffset;
+        var finUtc = inicioUtc.AddDays(1);
+
+        var pedidos = await _db.Pedidos
+            .Include(p => p.Detalles)
+            .Where(p => p.EstadoPrep == EstadoPreparacion.Entregado
+                        && p.FechaEntrega != null
+                        && p.FechaEntrega >= inicioUtc
+                        && p.FechaEntrega < finUtc)
+            .OrderByDescending(p => p.FechaEntrega)
             .ToListAsync();
+        return pedidos.Select(MapToDto).ToList();
+    }
 
     public async Task<PedidoDto> CrearPedidoAsync(CreatePedidoDto dto)
     {
@@ -85,6 +100,8 @@ public class OrdersService : IOrdersService
         var pedido = await _db.Pedidos.FindAsync(pedidoId)
             ?? throw new KeyNotFoundException($"Pedido {pedidoId} no encontrado.");
         pedido.EstadoPrep = nuevoEstado;
+        // Registra (o limpia) el momento de entrega según el nuevo estado.
+        pedido.FechaEntrega = nuevoEstado == EstadoPreparacion.Entregado ? DateTime.UtcNow : null;
         await _db.SaveChangesAsync();
     }
 
@@ -114,6 +131,7 @@ public class OrdersService : IOrdersService
         p.Id,
         p.MesaId,
         p.FechaCreacion,
+        p.FechaEntrega,
         p.EstadoPrep,
         p.EstadoFin,
         p.Tipo,

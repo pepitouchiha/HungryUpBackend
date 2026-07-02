@@ -42,4 +42,11 @@ public class UsuariosController : ControllerBase
         await _service.CambiarPasswordAsync(id, dto);
         return NoContent();
     }
+
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        await _service.EliminarAsync(id);
+        return NoContent();
+    }
 }

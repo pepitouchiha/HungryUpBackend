@@ -23,6 +23,10 @@ out/
 appsettings.*.json
 !appsettings.json
 
+## Imágenes de productos subidas en runtime (conservar la carpeta, no los archivos)
+src/HungryUp.Api/wwwroot/images/products/*
+!src/HungryUp.Api/wwwroot/images/products/.gitkeep
+
 ## OS
 .DS_Store
 Thumbs.db
