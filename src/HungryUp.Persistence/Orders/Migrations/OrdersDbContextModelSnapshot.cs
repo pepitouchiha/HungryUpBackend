@@ -40,7 +40,7 @@ namespace HungryUp.Persistence.Orders.Migrations
 
                     b.HasIndex("PedidoId");
 
-                    b.ToTable("DetallesPedido");
+                    b.ToTable("DetallesPedido", (string)null);
                 });
 
             modelBuilder.Entity("HungryUp.Domain.Orders.Mesa", b =>
@@ -60,7 +60,7 @@ namespace HungryUp.Persistence.Orders.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Mesas");
+                    b.ToTable("Mesas", (string)null);
                 });
 
             modelBuilder.Entity("HungryUp.Domain.Orders.Pedido", b =>
@@ -94,7 +94,7 @@ namespace HungryUp.Persistence.Orders.Migrations
 
                     b.HasIndex("MesaId");
 
-                    b.ToTable("Pedidos");
+                    b.ToTable("Pedidos", (string)null);
                 });
 
             modelBuilder.Entity("HungryUp.Domain.Orders.DetallePedido", b =>

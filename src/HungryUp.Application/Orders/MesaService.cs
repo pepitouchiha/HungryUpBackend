@@ -30,17 +30,14 @@ public class MesaService : IMesaService
 
     public async Task<MesaDto> CrearAsync(CreateMesaDto dto)
     {
-        if (dto.Numero <= 0)
-            throw new ArgumentException("El número de mesa debe ser mayor que cero.");
-
-        var duplicada = await _db.Mesas.AnyAsync(m => m.Numero == dto.Numero && m.Activo);
-        if (duplicada)
-            throw new InvalidOperationException($"Ya existe una mesa activa con el número {dto.Numero}.");
+        var maxNumero = await _db.Mesas.AnyAsync()
+            ? await _db.Mesas.MaxAsync(m => m.Numero)
+            : 0;
 
         var mesa = new Mesa
         {
             Id = Guid.NewGuid(),
-            Numero = dto.Numero,
+            Numero = maxNumero + 1,
             Estado = EstadoMesa.Libre,
             Activo = true
         };
@@ -67,10 +64,15 @@ public class MesaService : IMesaService
 
     public async Task EliminarAsync(Guid id)
     {
-        var mesa = await _db.Mesas.FindAsync(id)
+        var mesa = await _db.Mesas
+            .Include(m => m.Pedidos)
+            .FirstOrDefaultAsync(m => m.Id == id)
             ?? throw new KeyNotFoundException($"No existe la mesa {id}.");
 
-        mesa.Activo = false; // borrado lógico
+        foreach (var pedido in mesa.Pedidos)
+            pedido.MesaId = null;
+
+        _db.Mesas.Remove(mesa);
         await _db.SaveChangesAsync();
     }
 
