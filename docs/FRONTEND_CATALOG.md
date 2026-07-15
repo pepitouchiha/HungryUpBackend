@@ -36,8 +36,9 @@ formatear con `Intl.NumberFormat('es-CO', { style:'currency', currency:'COP', ma
 | `PUT`    | `/api/v1/products/{id}` | Actualizar |
 | `DELETE` | `/api/v1/products/{id}` | Borrado lógico (204) |
 | `POST`   | `/api/v1/products/{id}/image` | **Subir imagen** (multipart) |
+| `POST`   | `/api/v1/products/{id}/stock` | **Entrada de inventario** `{ cantidad }` |
 
-**`ProductoDto` (respuesta)**
+**`ProductoDto` (respuesta)** — ⚠️ incluye **`tarifaIva`** y **`costoPromedio`** (nuevos):
 ```json
 {
   "id": "guid",
@@ -45,13 +46,19 @@ formatear con `Intl.NumberFormat('es-CO', { style:'currency', currency:'COP', ma
   "precio": 6000,
   "stockActual": 40,
   "categoriaId": "guid",
+  "tarifaIva": 19,          // % de IVA (0 | 5 | 19)
+  "costoPromedio": 4200,    // solo lectura, lo calcula el backend al confirmar compras
   "imagenUrl": "/images/products/ab12...png",
   "activo": true
 }
 ```
 
-**Crear** (`CreateProductoDto`): `{ nombre, precio, stockInicial, categoriaId, imagenUrl? }`
-**Actualizar** (`UpdateProductoDto`): `{ nombre, precio, stockActual, categoriaId, imagenUrl? }`
+**Crear** (`CreateProductoDto`): `{ nombre, precio, stockInicial, categoriaId, tarifaIva?, imagenUrl? }` (`tarifaIva` default 19)
+**Actualizar** (`UpdateProductoDto`): `{ nombre, precio, stockActual, categoriaId, tarifaIva, imagenUrl }`
+
+> El costeo de inventario, la entrada de stock y el descuento automático al vender se detallan en
+> [`FRONTEND_PURCHASES.md`](./FRONTEND_PURCHASES.md). El módulo de **compras** aumenta el inventario
+> y recalcula `costoPromedio`.
 
 ### Imágenes con ruta interna
 La imagen ya **no es solo una URL externa**: se sube el archivo y el backend lo guarda

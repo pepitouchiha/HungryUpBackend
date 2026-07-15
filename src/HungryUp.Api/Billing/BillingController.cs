@@ -1,3 +1,5 @@
+using HungryUp.Api.Authorization;
+using HungryUp.Application.Auth;
 using HungryUp.Application.Billing;
 using HungryUp.Application.Billing.Dtos;
 using Microsoft.AspNetCore.Authorization;
@@ -15,6 +17,7 @@ public class BillingController : ControllerBase
     public BillingController(IBillingService service) => _service = service;
 
     [HttpPost("pay")]
+    [HasPermission(Permissions.Billing.Pay)]
     public async Task<IActionResult> Pay([FromBody] ProcesarPagoDto dto)
     {
         var pago = await _service.ProcesarPagoAsync(dto);

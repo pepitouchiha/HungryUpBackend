@@ -47,6 +47,10 @@ namespace HungryUp.Persistence.Catalog.Migrations
                     b.Property<Guid>("CategoriaId")
                         .HasColumnType("TEXT");
 
+                    b.Property<decimal>("CostoPromedio")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("ImagenUrl")
                         .HasMaxLength(2048)
                         .HasColumnType("TEXT");
@@ -61,6 +65,10 @@ namespace HungryUp.Persistence.Catalog.Migrations
 
                     b.Property<int>("StockActual")
                         .HasColumnType("INTEGER");
+
+                    b.Property<decimal>("TarifaIva")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 

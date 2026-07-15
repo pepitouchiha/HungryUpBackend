@@ -1,4 +1,5 @@
 using HungryUp.Application.Catalog;
+using HungryUp.Application.Catalog.Dtos;
 using HungryUp.Application.Orders.Dtos;
 using HungryUp.Domain.Orders;
 using HungryUp.Persistence.Orders;
@@ -47,6 +48,16 @@ public class OrdersService : IOrdersService
         return pedidos.Select(MapToDto).ToList();
     }
 
+    public async Task<List<PedidoDto>> GetPagadosAsync(DateTime desde, DateTime hasta)
+    {
+        var pedidos = await _db.Pedidos
+            .Include(p => p.Detalles)
+            .Where(p => p.EstadoFin == EstadoFinanciero.Pagado
+                        && p.FechaCreacion >= desde && p.FechaCreacion <= hasta)
+            .ToListAsync();
+        return pedidos.Select(MapToDto).ToList();
+    }
+
     public async Task<PedidoDto> CrearPedidoAsync(CreatePedidoDto dto)
     {
         if (dto.TipoRestaurante == TipoRestaurante.Gourmet && dto.MesaId is null)
@@ -54,6 +65,12 @@ public class OrdersService : IOrdersService
 
         if (dto.TipoRestaurante == TipoRestaurante.FastFood && dto.MesaId is not null)
             throw new InvalidOperationException("FastFood no puede tener Mesa asignada.");
+
+        if (dto.Items is null || dto.Items.Count == 0)
+            throw new InvalidOperationException("El pedido debe tener al menos un item.");
+
+        if (dto.Items.Any(i => i.Cantidad <= 0))
+            throw new InvalidOperationException("La cantidad de cada item debe ser mayor a cero.");
 
         if (dto.TipoRestaurante == TipoRestaurante.Gourmet && dto.MesaId.HasValue)
         {
@@ -86,9 +103,16 @@ public class OrdersService : IOrdersService
                 PedidoId = pedido.Id,
                 ProductoId = item.ProductoId,
                 Cantidad = item.Cantidad,
-                PrecioUnitario = producto.Precio
+                PrecioUnitario = producto.Precio,
+                CostoUnitario = producto.CostoPromedio // foto del costo al momento de la venta (COGS)
             });
         }
+
+        // Valida disponibilidad y descuenta stock en el módulo Catalog antes de confirmar el pedido.
+        // Nota: Catalog y Orders son contextos separados; si el guardado del pedido fallara tras
+        // descontar el stock quedaría una inconsistencia. Pendiente de envolver en transacción compartida.
+        await _catalog.DescontarStockAsync(
+            dto.Items.Select(i => new AjusteStockDto(i.ProductoId, i.Cantidad)).ToList());
 
         _db.Pedidos.Add(pedido);
         await _db.SaveChangesAsync();
@@ -136,6 +160,6 @@ public class OrdersService : IOrdersService
         p.EstadoFin,
         p.Tipo,
         p.NumeroTurno,
-        p.Detalles.Select(d => new DetallePedidoDto(d.ProductoId, d.Cantidad, d.PrecioUnitario)).ToList()
+        p.Detalles.Select(d => new DetallePedidoDto(d.ProductoId, d.Cantidad, d.PrecioUnitario, d.CostoUnitario)).ToList()
     );
 }

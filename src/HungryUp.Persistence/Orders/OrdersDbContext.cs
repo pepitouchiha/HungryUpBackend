@@ -16,5 +16,9 @@ public class OrdersDbContext : DbContext
         modelBuilder.Entity<DetallePedido>()
             .Property(d => d.PrecioUnitario)
             .HasPrecision(18, 2);
+
+        modelBuilder.Entity<DetallePedido>()
+            .Property(d => d.CostoUnitario)
+            .HasPrecision(18, 2);
     }
 }

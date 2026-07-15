@@ -75,7 +75,7 @@ public class CatalogService : ICatalogService
             query = query.Where(p => p.Activo);
         return query
             .OrderBy(p => p.Nombre)
-            .Select(p => new ProductoDto(p.Id, p.Nombre, p.Precio, p.StockActual, p.CategoriaId, p.ImagenUrl, p.Activo))
+            .Select(p => new ProductoDto(p.Id, p.Nombre, p.Precio, p.StockActual, p.CategoriaId, p.TarifaIva, p.CostoPromedio, p.ImagenUrl, p.Activo))
             .ToListAsync();
     }
 
@@ -88,6 +88,7 @@ public class CatalogService : ICatalogService
     public async Task<ProductoDto> CrearProductoAsync(CreateProductoDto dto)
     {
         await ValidarCategoriaAsync(dto.CategoriaId);
+        ValidarTarifaIva(dto.TarifaIva);
 
         var producto = new Producto
         {
@@ -96,6 +97,7 @@ public class CatalogService : ICatalogService
             Precio = dto.Precio,
             StockActual = dto.StockInicial,
             CategoriaId = dto.CategoriaId,
+            TarifaIva = dto.TarifaIva,
             ImagenUrl = dto.ImagenUrl,
             Activo = true
         };
@@ -110,11 +112,13 @@ public class CatalogService : ICatalogService
             ?? throw new KeyNotFoundException($"No existe el producto {id}.");
 
         await ValidarCategoriaAsync(dto.CategoriaId);
+        ValidarTarifaIva(dto.TarifaIva);
 
         producto.Nombre = dto.Nombre.Trim();
         producto.Precio = dto.Precio;
         producto.StockActual = dto.StockActual;
         producto.CategoriaId = dto.CategoriaId;
+        producto.TarifaIva = dto.TarifaIva;
         producto.ImagenUrl = dto.ImagenUrl;
         await _db.SaveChangesAsync();
         return Map(producto);
@@ -139,6 +143,80 @@ public class CatalogService : ICatalogService
         return Map(producto);
     }
 
+    public async Task<ProductoDto> AumentarStockAsync(Guid id, int cantidad)
+    {
+        if (cantidad <= 0)
+            throw new ArgumentException("La cantidad a ingresar debe ser mayor a cero.");
+
+        var producto = await _db.Productos.FindAsync(id)
+            ?? throw new KeyNotFoundException($"No existe el producto {id}.");
+
+        producto.StockActual += cantidad;
+        await _db.SaveChangesAsync();
+        return Map(producto);
+    }
+
+    public async Task<ProductoDto> AumentarStockConCostoAsync(Guid id, int cantidad, decimal costoUnitario)
+    {
+        if (cantidad <= 0)
+            throw new ArgumentException("La cantidad a ingresar debe ser mayor a cero.");
+
+        if (costoUnitario < 0)
+            throw new ArgumentException("El costo unitario no puede ser negativo.");
+
+        var producto = await _db.Productos.FindAsync(id)
+            ?? throw new KeyNotFoundException($"No existe el producto {id}.");
+
+        var stockPrevio = producto.StockActual;
+        var stockNuevo = stockPrevio + cantidad;
+
+        // Costo promedio ponderado. Si no había stock (o era negativo), el costo pasa a ser el de la compra.
+        producto.CostoPromedio = stockPrevio > 0
+            ? Math.Round((stockPrevio * producto.CostoPromedio + cantidad * costoUnitario) / stockNuevo, 2, MidpointRounding.AwayFromZero)
+            : costoUnitario;
+        producto.StockActual = stockNuevo;
+
+        await _db.SaveChangesAsync();
+        return Map(producto);
+    }
+
+    public async Task DescontarStockAsync(IReadOnlyCollection<AjusteStockDto> items)
+    {
+        if (items is null || items.Count == 0)
+            throw new ArgumentException("No hay items para descontar del stock.");
+
+        // Un mismo producto puede venir en varios items: se agrupan las cantidades.
+        var requerido = items
+            .GroupBy(i => i.ProductoId)
+            .ToDictionary(g => g.Key, g => g.Sum(i => i.Cantidad));
+
+        var ids = requerido.Keys.ToList();
+        var productos = await _db.Productos
+            .Where(p => ids.Contains(p.Id))
+            .ToListAsync();
+
+        foreach (var (productoId, cantidad) in requerido)
+        {
+            if (cantidad <= 0)
+                throw new ArgumentException($"La cantidad del producto {productoId} debe ser mayor a cero.");
+
+            var producto = productos.FirstOrDefault(p => p.Id == productoId)
+                ?? throw new KeyNotFoundException($"No existe el producto {productoId}.");
+
+            if (!producto.Activo)
+                throw new InvalidOperationException($"El producto '{producto.Nombre}' está inactivo y no puede venderse.");
+
+            if (producto.StockActual < cantidad)
+                throw new InvalidOperationException(
+                    $"Stock insuficiente para '{producto.Nombre}': disponible {producto.StockActual}, solicitado {cantidad}.");
+
+            producto.StockActual -= cantidad;
+        }
+
+        // Se persiste solo si todas las validaciones pasaron (la iteración lanza antes de llegar aquí).
+        await _db.SaveChangesAsync();
+    }
+
     // ---------- Helpers ----------
 
     private async Task ValidarCategoriaAsync(Guid categoriaId)
@@ -148,6 +226,12 @@ public class CatalogService : ICatalogService
             throw new InvalidOperationException($"La categoría {categoriaId} no existe o está inactiva.");
     }
 
+    private static void ValidarTarifaIva(decimal tarifaIva)
+    {
+        if (tarifaIva < 0 || tarifaIva > 100)
+            throw new ArgumentException("La tarifa de IVA debe estar entre 0 y 100.");
+    }
+
     private static ProductoDto Map(Producto p) =>
-        new(p.Id, p.Nombre, p.Precio, p.StockActual, p.CategoriaId, p.ImagenUrl, p.Activo);
+        new(p.Id, p.Nombre, p.Precio, p.StockActual, p.CategoriaId, p.TarifaIva, p.CostoPromedio, p.ImagenUrl, p.Activo);
 }

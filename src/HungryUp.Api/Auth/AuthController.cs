@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using HungryUp.Application.Auth;
 using HungryUp.Application.Auth.Dtos;
 using Microsoft.AspNetCore.Authorization;
@@ -39,6 +40,22 @@ public class AuthController : ControllerBase
     {
         await _auth.LogoutAsync(dto.RefreshToken);
         return NoContent();
+    }
+
+    /// <summary>Devuelve el usuario autenticado junto con su rol y la lista de permisos efectivos.</summary>
+    [Authorize]
+    [HttpGet("me")]
+    public IActionResult Me()
+    {
+        var rol = User.FindFirstValue(ClaimTypes.Role);
+        return Ok(new
+        {
+            id = User.FindFirstValue(ClaimTypes.NameIdentifier),
+            username = User.FindFirstValue(ClaimTypes.Name),
+            email = User.FindFirstValue(ClaimTypes.Email),
+            rol,
+            permisos = RolePermissions.ForRole(rol).OrderBy(p => p).ToList()
+        });
     }
 
     private string? Ip() => HttpContext.Connection.RemoteIpAddress?.ToString();

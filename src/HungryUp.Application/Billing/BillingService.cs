@@ -48,6 +48,18 @@ public class BillingService : IBillingService
         return new PagoDto(pago.Id, pago.PedidoId, pago.MontoTotal, pago.Metodo, pago.FechaPago);
     }
 
+    public async Task<List<PagoDto>> GetPagosAsync(DateTime desde, DateTime hasta)
+    {
+        var pagos = await _db.Pagos
+            .Where(p => p.FechaPago >= desde && p.FechaPago <= hasta)
+            .OrderBy(p => p.FechaPago)
+            .ToListAsync();
+
+        return pagos
+            .Select(p => new PagoDto(p.Id, p.PedidoId, p.MontoTotal, p.Metodo, p.FechaPago))
+            .ToList();
+    }
+
     public async Task<ResumenVentasDto> ObtenerResumenVentasAsync(DateTime desde, DateTime hasta)
     {
         var pagos = await _db.Pagos

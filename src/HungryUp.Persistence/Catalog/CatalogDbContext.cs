@@ -21,5 +21,15 @@ public class CatalogDbContext : DbContext
         modelBuilder.Entity<Producto>()
             .Property(p => p.ImagenUrl)
             .HasMaxLength(2048);
+
+        // Tarifa de IVA en porcentaje (ej. 19.00).
+        modelBuilder.Entity<Producto>()
+            .Property(p => p.TarifaIva)
+            .HasPrecision(5, 2);
+
+        // Costo promedio ponderado de adquisición.
+        modelBuilder.Entity<Producto>()
+            .Property(p => p.CostoPromedio)
+            .HasPrecision(18, 2);
     }
 }

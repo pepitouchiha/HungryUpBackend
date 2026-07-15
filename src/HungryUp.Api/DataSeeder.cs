@@ -56,11 +56,11 @@ public static class DataSeeder
         db.Categorias.AddRange(bebidas, rapidas, postres);
 
         db.Productos.AddRange(
-            new Producto { Id = Guid.NewGuid(), Nombre = "Agua Mineral 500ml",   CategoriaId = bebidas.Id, Precio =  2.50m, StockActual = 100 },
-            new Producto { Id = Guid.NewGuid(), Nombre = "Coca-Cola 350ml",      CategoriaId = bebidas.Id, Precio =  3.50m, StockActual =  50 },
-            new Producto { Id = Guid.NewGuid(), Nombre = "Hamburguesa Clásica",  CategoriaId = rapidas.Id, Precio = 12.90m, StockActual =  20 },
-            new Producto { Id = Guid.NewGuid(), Nombre = "Pizza Margarita",      CategoriaId = rapidas.Id, Precio = 15.50m, StockActual =  15 },
-            new Producto { Id = Guid.NewGuid(), Nombre = "Brownie de Chocolate", CategoriaId = postres.Id, Precio =  6.00m, StockActual =  30 }
+            new Producto { Id = Guid.NewGuid(), Nombre = "Agua Mineral 500ml",   CategoriaId = bebidas.Id, Precio =  2.50m, StockActual = 100, TarifaIva = 19m },
+            new Producto { Id = Guid.NewGuid(), Nombre = "Coca-Cola 350ml",      CategoriaId = bebidas.Id, Precio =  3.50m, StockActual =  50, TarifaIva = 19m },
+            new Producto { Id = Guid.NewGuid(), Nombre = "Hamburguesa Clásica",  CategoriaId = rapidas.Id, Precio = 12.90m, StockActual =  20, TarifaIva = 19m },
+            new Producto { Id = Guid.NewGuid(), Nombre = "Pizza Margarita",      CategoriaId = rapidas.Id, Precio = 15.50m, StockActual =  15, TarifaIva = 19m },
+            new Producto { Id = Guid.NewGuid(), Nombre = "Brownie de Chocolate", CategoriaId = postres.Id, Precio =  6.00m, StockActual =  30, TarifaIva = 5m }
         );
 
         await db.SaveChangesAsync();

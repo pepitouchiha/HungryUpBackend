@@ -11,6 +11,12 @@ public class Producto
 
     public int StockActual { get; set; }
 
+    /// <summary>Tarifa de IVA del producto en porcentaje (Colombia: 0 exento, 5, 19). Se usa como valor por defecto en las compras.</summary>
+    public decimal TarifaIva { get; set; }
+
+    /// <summary>Costo promedio ponderado de adquisición. Se recalcula al confirmar compras y se usa para el COGS.</summary>
+    public decimal CostoPromedio { get; set; }
+
     /// <summary>Ruta interna (/images/products/...) o URL de la imagen del producto. Opcional.</summary>
     public string? ImagenUrl { get; set; }
 

@@ -71,7 +71,7 @@ HungryUpBackend/
 Api  →  Application  →  Persistence  →  Domain
 ```
 
-Cada dominio tiene su propio `DbContext` aislado con tabla de migraciones independiente (`__EFMigrationsHistory_Catalog`, `__EFMigrationsHistory_Orders`, `__EFMigrationsHistory_Billing`).
+Cada dominio tiene su propio `DbContext` aislado (6 en total: Catalog, Orders, Billing, Auth, Purchasing, Payroll) con tabla de migraciones independiente (`__EFMigrationsHistory_<Módulo>`).
 
 ---
 
@@ -81,47 +81,86 @@ Cada dominio tiene su propio `DbContext` aislado con tabla de migraciones indepe
 |---|---|
 | Framework | ASP.NET Core 9 — Minimal Hosting |
 | ORM | Entity Framework Core 9 |
-| Base de datos | SQLite — 3 DbContexts aislados |
+| Base de datos | SQLite — 6 DbContexts aislados |
 | API Docs | Scalar UI (`/scalar/v1`) |
 | Serialización | `System.Text.Json` + enums como strings |
-| Auth | Credenciales hardcodeadas (sin JWT), token base64 |
+| Auth | **JWT (HMAC-SHA256)** access token 15 min + refresh token 7 días con rotación estricta; BCrypt |
+| Autorización | **RBAC por permisos granulares** (`recurso:acción`) |
 
 ---
 
 ## Endpoints
 
+> Todos los endpoints (salvo los de `/api/auth`) exigen `Authorization: Bearer <accessToken>` y
+> el **permiso** correspondiente. Detalle para el frontend en [`docs/`](./docs).
+
 ### Auth
 ```
-POST /api/auth/login                   Iniciar sesión → devuelve sesión con token
+POST /api/auth/login                   Iniciar sesión → accessToken + refreshToken
+POST /api/auth/refresh                 Rotar tokens
+POST /api/auth/logout                  Revocar refresh token
+GET  /api/auth/me                      Usuario actual + rol + permisos efectivos
 ```
 
 ### Catalog
 ```
-GET  /api/v1/products                  Productos con stock disponible
-POST /api/v1/products                  Crear producto
-GET  /api/v1/products/{id}             Obtener producto por ID
-GET  /api/v1/products/categorias       Listar todas las categorías
+GET    /api/v1/products                Listar productos (?activos=true)
+POST   /api/v1/products                Crear producto (con tarifaIva)
+GET    /api/v1/products/{id}           Obtener producto por ID
+PUT    /api/v1/products/{id}           Actualizar producto
+DELETE /api/v1/products/{id}           Borrado lógico
+POST   /api/v1/products/{id}/image     Subir imagen (multipart)
+POST   /api/v1/products/{id}/stock     Entrada de inventario { cantidad }
+GET    /api/v1/categories              CRUD de categorías (+ POST/PUT/DELETE)
 ```
 
 ### Orders
 ```
-GET  /api/v1/orders                    Listar pedidos (filtro ?estadoPrep=Pendiente|EnPreparacion|Entregado)
-POST /api/v1/orders                    Crear orden (FastFood o Gourmet)
-GET  /api/v1/orders/{id}              Obtener pedido por ID
+GET  /api/v1/orders                    Listar pedidos (?estadoPrep=Pendiente|EnPreparacion|Entregado)
+GET  /api/v1/orders/{id}               Obtener pedido por ID
+GET  /api/v1/orders/delivered-today    Entregados de hoy
+POST /api/v1/orders                    Crear orden (descuenta stock; 400 si insuficiente)
 PUT  /api/v1/orders/{id}/status        Cambiar estado de preparación
-GET  /api/v1/orders/mesas              Listar mesas con su estado
-POST /api/v1/orders/mesas/{id}/liberar Liberar una mesa
+GET  /api/v1/orders/mesas              Mesas activas
+GET  /api/v1/mesas                     CRUD de mesas (+ POST/PUT/DELETE)
 ```
 
 ### Billing
 ```
-POST /api/v1/billing/pay               Procesar pago de una orden
-GET  /api/v1/billing/resumen           Resumen de ventas
+POST /api/v1/billing/pay               Procesar pago de una orden (libera mesa si Gourmet)
 ```
 
-### Analytics
+### Purchasing (Compras)
 ```
-GET  /api/v1/analytics/sales-summary?periodo=dia|semana|mes
+GET    /api/v1/compras                 Listar (?estado=Borrador|Confirmada|Anulada)
+POST   /api/v1/compras                 Crear factura de compra (Borrador)
+PUT    /api/v1/compras/{id}            Editar (solo Borrador)
+PATCH  /api/v1/compras/{id}/notas      Editar notas
+POST   /api/v1/compras/{id}/confirmar  Confirmar → aumenta inventario y costo promedio
+POST   /api/v1/compras/{id}/anular     Anular → revierte inventario
+DELETE /api/v1/compras/{id}            Eliminar (solo Borrador)
+```
+
+### Payroll (Empleados)  ·  solo Admin
+```
+GET/POST/PUT/DELETE /api/v1/empleados  CRUD de empleados con salario mensual
+```
+
+### Analytics / Dashboard
+```
+GET /api/v1/analytics/dashboard                 Tarjetas resumen (rango de fechas)
+GET /api/v1/analytics/sales-timeseries          Serie temporal (dia|semana|mes, ?productoId)
+GET /api/v1/analytics/top-products              Más vendidos (?orderBy=cantidad|ingresos)
+GET /api/v1/analytics/sales-by-payment-method   Ventas por método de pago
+GET /api/v1/analytics/sales-by-type             FastFood vs Gourmet
+GET /api/v1/analytics/inventory                 Valor de inventario y bajo stock
+GET /api/v1/analytics/profit-loss               Ganancias/pérdidas (utilidad caja + operativa) · solo Admin
+GET /api/v1/analytics/sales-summary?periodo=    Resumen rápido por periodo
+```
+
+### Users  ·  solo Admin
+```
+GET/POST/PUT/DELETE /api/v1/users      Gestión de usuarios (+ PUT {id}/password)
 ```
 
 ---
@@ -150,13 +189,20 @@ Documentación interactiva: **http://localhost:5216/scalar/v1**
 
 ## Autenticación
 
-El sistema usa credenciales hardcodeadas sin JWT. El endpoint `/api/auth/login` devuelve un objeto de sesión con token base64.
+El sistema usa **JWT** (HMAC-SHA256) con contraseñas hasheadas con **BCrypt**. `POST /api/auth/login`
+devuelve un **access token** (15 min) y un **refresh token** (7 días, con rotación estricta y detección
+de reuso). La autorización es **RBAC por permisos granulares** (`recurso:acción`): cada endpoint exige
+un permiso concreto vía `[HasPermission(...)]`, y el mapeo rol→permisos está centralizado en `RolePermissions`.
+Consulta `GET /api/auth/me` para obtener el rol y los permisos efectivos del usuario.
 
-| Usuario | Contraseña | Rol |
-|---|---|---|
-| `admin` | `admin123` | Admin |
-| `cajero` | `cajero123` | Cajero |
-| `mesero` | `mesero123` | Mesero |
+| Usuario | Contraseña | Rol | Alcance |
+|---|---|---|---|
+| `admin` | `admin123` | Admin | Todo (incluye compras, empleados y ganancias/pérdidas) |
+| `cajero` | `cajero123` | Cashier | Pedidos, cobro, dashboard general, ver compras |
+| `mesero` | `mesero123` | Waiter | Pedidos y estado de mesas |
+
+> Documentación de integración para el frontend en [`docs/`](./docs):
+> auth, permisos, catálogo, pedidos, compras y dashboard.
 
 ---
 

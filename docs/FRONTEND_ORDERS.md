@@ -10,10 +10,14 @@ Endpoints de **pedidos** y soporte para la pantalla **Monitor** (incluida la lis
 | Método | Ruta | Descripción |
 |--------|------|-------------|
 | `GET`  | `/api/v1/orders` | Lista pedidos. Filtro opcional `?estadoPrep=Pendiente\|EnPreparacion\|Entregado` |
+| `GET`  | `/api/v1/orders/{id}` | **Un pedido por id** (nuevo) |
 | `GET`  | `/api/v1/orders/delivered-today` | **Entregados de HOY** (para el panel "Entregados" del monitor) |
 | `GET`  | `/api/v1/orders/mesas` | Mesas activas (para asignar una al crear pedido) |
 | `POST` | `/api/v1/orders` | Crear pedido |
 | `PUT`  | `/api/v1/orders/{id}/status` | Cambiar estado de preparación |
+
+> Permisos: leer requiere `orders:read`, crear `orders:create`, cambiar estado `orders:update-status`
+> (Admin, Cajero y Mesero los tienen). Ver [`FRONTEND_PERMISSIONS.md`](./FRONTEND_PERMISSIONS.md).
 
 ---
 
@@ -30,10 +34,11 @@ Endpoints de **pedidos** y soporte para la pantalla **Monitor** (incluida la lis
   "tipo": "FastFood",                   // FastFood | Gourmet
   "numeroTurno": 12,
   "detalles": [
-    { "productoId": "guid", "cantidad": 2, "precioUnitario": 18000 }
+    { "productoId": "guid", "cantidad": 2, "precioUnitario": 18000, "costoUnitario": 9000 }
   ]
 }
 ```
+> `costoUnitario` (nuevo) es la foto del costo del producto al vender; se usa para el COGS del dashboard.
 
 ### Crear pedido — `CreatePedidoDto`
 `POST /api/v1/orders`
@@ -44,6 +49,11 @@ Endpoints de **pedidos** y soporte para la pantalla **Monitor** (incluida la lis
   "items": [ { "productoId": "guid", "cantidad": 2 } ]
 }
 ```
+> ⚠️ **Validación de stock (nuevo).** Al crear un pedido el backend **descuenta inventario** y valida:
+> - Sin stock suficiente → **400** `"Stock insuficiente para '...': disponible X, solicitado Y"`.
+> - `items` vacío o `cantidad ≤ 0` → **400**.
+>
+> Mostrar el `detail` del error al usuario y no reintentar sin corregir cantidades.
 
 ### Cambiar estado — `PUT /api/v1/orders/{id}/status`
 ```json

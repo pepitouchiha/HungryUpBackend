@@ -1,15 +1,21 @@
 using System.Text;
 using System.Text.Json.Serialization;
 using HungryUp.Api;
+using HungryUp.Api.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using HungryUp.Application.Analytics;
 using HungryUp.Application.Auth;
 using HungryUp.Application.Billing;
 using HungryUp.Application.Catalog;
 using HungryUp.Application.Orders;
+using HungryUp.Application.Payroll;
+using HungryUp.Application.Purchasing;
 using HungryUp.Persistence.Auth;
 using HungryUp.Persistence.Billing;
 using HungryUp.Persistence.Catalog;
 using HungryUp.Persistence.Orders;
+using HungryUp.Persistence.Payroll;
+using HungryUp.Persistence.Purchasing;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -48,6 +54,16 @@ builder.Services.AddDbContext<AuthDbContext>(opt =>
         .MigrationsHistoryTable("__EFMigrationsHistory_Auth")
         .MigrationsAssembly("HungryUp.Persistence")));
 
+builder.Services.AddDbContext<PurchasingDbContext>(opt =>
+    opt.UseSqlite(connStr, x => x
+        .MigrationsHistoryTable("__EFMigrationsHistory_Purchasing")
+        .MigrationsAssembly("HungryUp.Persistence")));
+
+builder.Services.AddDbContext<PayrollDbContext>(opt =>
+    opt.UseSqlite(connStr, x => x
+        .MigrationsHistoryTable("__EFMigrationsHistory_Payroll")
+        .MigrationsAssembly("HungryUp.Persistence")));
+
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
 var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>()!;
 
@@ -67,6 +83,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 builder.Services.AddAuthorization();
+// Autorización basada en permisos: políticas creadas al vuelo + handler que resuelve permisos por rol.
+builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
+builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
 
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUsuarioService, UsuarioService>();
@@ -75,6 +94,8 @@ builder.Services.AddScoped<IOrdersService, OrdersService>();
 builder.Services.AddScoped<IMesaService, MesaService>();
 builder.Services.AddScoped<IBillingService, BillingService>();
 builder.Services.AddScoped<IAnalyticsService, AnalyticsService>();
+builder.Services.AddScoped<IPurchasingService, PurchasingService>();
+builder.Services.AddScoped<IPayrollService, PayrollService>();
 
 builder.Services.AddCors(opts => opts.AddDefaultPolicy(policy =>
     policy.WithOrigins("http://localhost:4200")
@@ -93,6 +114,8 @@ using (var scope = app.Services.CreateScope())
     services.GetRequiredService<OrdersDbContext>().Database.Migrate();
     services.GetRequiredService<BillingDbContext>().Database.Migrate();
     services.GetRequiredService<AuthDbContext>().Database.Migrate();
+    services.GetRequiredService<PurchasingDbContext>().Database.Migrate();
+    services.GetRequiredService<PayrollDbContext>().Database.Migrate();
 }
 await DataSeeder.SeedAsync(app.Services);
 

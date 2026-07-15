@@ -26,6 +26,10 @@ namespace HungryUp.Persistence.Orders.Migrations
                     b.Property<int>("Cantidad")
                         .HasColumnType("INTEGER");
 
+                    b.Property<decimal>("CostoUnitario")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("TEXT");
+
                     b.Property<Guid>("PedidoId")
                         .HasColumnType("TEXT");
 
@@ -40,7 +44,7 @@ namespace HungryUp.Persistence.Orders.Migrations
 
                     b.HasIndex("PedidoId");
 
-                    b.ToTable("DetallesPedido", (string)null);
+                    b.ToTable("DetallesPedido");
                 });
 
             modelBuilder.Entity("HungryUp.Domain.Orders.Mesa", b =>
@@ -60,7 +64,7 @@ namespace HungryUp.Persistence.Orders.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Mesas", (string)null);
+                    b.ToTable("Mesas");
                 });
 
             modelBuilder.Entity("HungryUp.Domain.Orders.Pedido", b =>
@@ -94,7 +98,7 @@ namespace HungryUp.Persistence.Orders.Migrations
 
                     b.HasIndex("MesaId");
 
-                    b.ToTable("Pedidos", (string)null);
+                    b.ToTable("Pedidos");
                 });
 
             modelBuilder.Entity("HungryUp.Domain.Orders.DetallePedido", b =>

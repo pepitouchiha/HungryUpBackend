@@ -1,3 +1,5 @@
+using HungryUp.Api.Authorization;
+using HungryUp.Application.Auth;
 using HungryUp.Application.Orders;
 using HungryUp.Application.Orders.Dtos;
 using HungryUp.Domain.Orders;
@@ -21,25 +23,38 @@ public class OrdersController : ControllerBase
     }
 
     [HttpGet]
+    [HasPermission(Permissions.Orders.Read)]
     public async Task<IActionResult> GetOrders([FromQuery] EstadoPreparacion? estadoPrep = null) =>
         Ok(await _service.GetPedidosAsync(estadoPrep));
 
     [HttpGet("mesas")]
+    [HasPermission(Permissions.Orders.Read)]
     public async Task<IActionResult> GetMesas() =>
         Ok(await _mesaService.GetMesasAsync(soloActivos: true));
 
     [HttpGet("delivered-today")]
+    [HasPermission(Permissions.Orders.Read)]
     public async Task<IActionResult> GetDeliveredToday() =>
         Ok(await _service.GetEntregadosHoyAsync());
 
+    [HttpGet("{id:guid}")]
+    [HasPermission(Permissions.Orders.Read)]
+    public async Task<IActionResult> GetOrder(Guid id)
+    {
+        var pedido = await _service.ObtenerPedidoPorIdAsync(id);
+        return pedido is null ? NotFound() : Ok(pedido);
+    }
+
     [HttpPost]
+    [HasPermission(Permissions.Orders.Create)]
     public async Task<IActionResult> CreateOrder([FromBody] CreatePedidoDto dto)
     {
         var pedido = await _service.CrearPedidoAsync(dto);
-        return CreatedAtAction(nameof(CreateOrder), new { id = pedido.Id }, pedido);
+        return CreatedAtAction(nameof(GetOrder), new { id = pedido.Id }, pedido);
     }
 
     [HttpPut("{id:guid}/status")]
+    [HasPermission(Permissions.Orders.UpdateStatus)]
     public async Task<IActionResult> UpdateStatus(Guid id, [FromBody] UpdateEstadoRequest request)
     {
         await _service.ActualizarEstadoPreparacionAsync(id, request.NuevoEstado);

@@ -1,3 +1,5 @@
+using HungryUp.Api.Authorization;
+using HungryUp.Application.Auth;
 using HungryUp.Application.Orders;
 using HungryUp.Application.Orders.Dtos;
 using Microsoft.AspNetCore.Authorization;
@@ -15,10 +17,12 @@ public class MesasController : ControllerBase
     public MesasController(IMesaService service) => _service = service;
 
     [HttpGet]
+    [HasPermission(Permissions.Mesas.Read)]
     public async Task<IActionResult> GetMesas([FromQuery] bool activos = false) =>
         Ok(await _service.GetMesasAsync(activos));
 
     [HttpGet("{id:guid}")]
+    [HasPermission(Permissions.Mesas.Read)]
     public async Task<IActionResult> GetMesa(Guid id)
     {
         var mesa = await _service.ObtenerPorIdAsync(id);
@@ -26,6 +30,7 @@ public class MesasController : ControllerBase
     }
 
     [HttpPost]
+    [HasPermission(Permissions.Mesas.Create)]
     public async Task<IActionResult> CreateMesa([FromBody] CreateMesaDto dto)
     {
         var mesa = await _service.CrearAsync(dto);
@@ -33,10 +38,12 @@ public class MesasController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [HasPermission(Permissions.Mesas.Update)]
     public async Task<IActionResult> UpdateMesa(Guid id, [FromBody] UpdateMesaDto dto) =>
         Ok(await _service.ActualizarAsync(id, dto));
 
     [HttpDelete("{id:guid}")]
+    [HasPermission(Permissions.Mesas.Delete)]
     public async Task<IActionResult> DeleteMesa(Guid id)
     {
         await _service.EliminarAsync(id);

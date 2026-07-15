@@ -1,3 +1,5 @@
+using HungryUp.Api.Authorization;
+using HungryUp.Application.Auth;
 using HungryUp.Application.Catalog;
 using HungryUp.Application.Catalog.Dtos;
 using Microsoft.AspNetCore.Authorization;
@@ -23,10 +25,12 @@ public class ProductsController : ControllerBase
     }
 
     [HttpGet]
+    [HasPermission(Permissions.Products.Read)]
     public async Task<IActionResult> GetProductos([FromQuery] bool activos = false) =>
         Ok(await _service.GetProductosAsync(activos));
 
     [HttpGet("{id:guid}")]
+    [HasPermission(Permissions.Products.Read)]
     public async Task<IActionResult> GetProducto(Guid id)
     {
         var producto = await _service.ObtenerProductoPorIdAsync(id);
@@ -34,6 +38,7 @@ public class ProductsController : ControllerBase
     }
 
     [HttpPost]
+    [HasPermission(Permissions.Products.Create)]
     public async Task<IActionResult> CreateProducto([FromBody] CreateProductoDto dto)
     {
         var producto = await _service.CrearProductoAsync(dto);
@@ -41,18 +46,27 @@ public class ProductsController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [HasPermission(Permissions.Products.Update)]
     public async Task<IActionResult> UpdateProducto(Guid id, [FromBody] UpdateProductoDto dto) =>
         Ok(await _service.ActualizarProductoAsync(id, dto));
 
     [HttpDelete("{id:guid}")]
+    [HasPermission(Permissions.Products.Delete)]
     public async Task<IActionResult> DeleteProducto(Guid id)
     {
         await _service.EliminarProductoAsync(id);
         return NoContent();
     }
 
+    /// <summary>Entrada de inventario: suma unidades al stock actual del producto.</summary>
+    [HttpPost("{id:guid}/stock")]
+    [HasPermission(Permissions.Products.AdjustStock)]
+    public async Task<IActionResult> AumentarStock(Guid id, [FromBody] EntradaStockDto dto) =>
+        Ok(await _service.AumentarStockAsync(id, dto.Cantidad));
+
     /// <summary>Sube una imagen y la guarda internamente en wwwroot/images/products.</summary>
     [HttpPost("{id:guid}/image")]
+    [HasPermission(Permissions.Products.ManageImage)]
     [Consumes("multipart/form-data")]
     public async Task<IActionResult> UploadImage(Guid id, IFormFile file)
     {

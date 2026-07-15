@@ -7,6 +7,9 @@ public interface IOrdersService
 {
     Task<List<PedidoDto>> GetPedidosAsync(EstadoPreparacion? estadoPrep = null);
     Task<List<PedidoDto>> GetEntregadosHoyAsync();
+
+    /// <summary>Pedidos pagados creados en el rango [desde, hasta]. Fuente de ventas para analítica (incluye COGS por detalle).</summary>
+    Task<List<PedidoDto>> GetPagadosAsync(DateTime desde, DateTime hasta);
     Task<PedidoDto> CrearPedidoAsync(CreatePedidoDto dto);
     Task ActualizarEstadoPreparacionAsync(Guid pedidoId, EstadoPreparacion nuevoEstado);
     Task<PedidoDto?> ObtenerPedidoPorIdAsync(Guid id);

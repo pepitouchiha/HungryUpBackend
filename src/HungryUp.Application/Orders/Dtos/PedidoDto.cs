@@ -2,7 +2,7 @@ using HungryUp.Domain.Orders;
 
 namespace HungryUp.Application.Orders.Dtos;
 
-public record DetallePedidoDto(Guid ProductoId, int Cantidad, decimal PrecioUnitario);
+public record DetallePedidoDto(Guid ProductoId, int Cantidad, decimal PrecioUnitario, decimal CostoUnitario);
 
 public record PedidoDto(
     Guid Id,
